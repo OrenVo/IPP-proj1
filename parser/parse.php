@@ -126,7 +126,7 @@ class Token
 {
   public $type;
   public $attr;
-  function __construct($type, $attr)
+  function __construct($type, $attr = NULL)
   {
     $this->$type = $type;
     $this->$attr = $attr;
@@ -177,20 +177,46 @@ class Scanner
 {
   private $line_num = 1;
   public $input;
+  private $len;
   private $index = 11;
   function __construct($input){
       $this->input = $input;
+      $this->len = strlen($input);
   }
   // Funkce zkontroluje přítomnost hlavičky, poté zahájí lexikální analýzu
   public function scan(){
       if (substr($this->input,0,12) <> ".IPPcode20\n") {
         throw new my_Exception("Na řádku $this->line_num chybí hlavička", 21);
       }
-      Final_State_Machine();
+      $Tokens = array(new Token(TOKEN_IPPcode20), new Token(TOKEN_EOL));
+      do {
+        $token = get_new_token();
+        if ($token->type == NULL) {
+          throw new my_Exception("Neznámý token", 23);
+        }
+        push_array($Tokens,$token);
+      } while ($token->type != TOKEN_EOF);
+      return $Tokens;
+  }
+
+  public function get_new_token(){
+    return Final_State_Machine();
   }
 
   private function Final_State_Machine(){
+    $buffer = null;
+      while ($index < $len) {
+        switch (variable) {
+          case 'value':
+            // code...
+            break;
 
+          default:
+            // code...
+            break;
+        }
+      }
+      return new Token(TOKEN_EOF);
   }
 
 }
