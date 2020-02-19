@@ -7,16 +7,16 @@
  ************************************************************/
 declare(strict_types = 1); // Pro jistotu zapnout datovou kontrolu :D
 
-include __DIR__ . '/error_handler.php';
-include __DIR__ . '/scanner.php';
-include __DIR__ . '/parser.php';
+include_once __DIR__ . '/error_handler.php';
+include_once __DIR__ . '/scanner.php';
+include_once __DIR__ . '/parser.php';
 
 
 
 
 try {
 
-  $scanner = new Scanner(get_input());
+  $scanner = new Scanner();
   $tokens = $scanner->scan();
 
 } catch (my_Exception $err) {

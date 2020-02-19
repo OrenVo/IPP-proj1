@@ -4,6 +4,8 @@
  * @file scanner.php
  * @brief Soubor obsahující třídu lexikálního analyzátoru
  */
+ require_once __DIR__ . '/error_handler.php';
+
 
  class T_Type
  {
@@ -106,10 +108,8 @@
    public $attr;
    public function __construct($t_type, $t_attr = NULL)
    {
-     echo "$type\t";
-     self::$type = $t_type;
-     echo "this: $this->type\n";
-     self::$attr = $t_attr;
+     $this->type = $t_type;
+     $this->attr = $t_attr;
    }
  }
 
@@ -119,9 +119,9 @@
    public $input;
    private $len;
    private $index = 11;
-   function __construct($input){
-       $this->input = $input;
-       $this->len = strlen($input);
+   function __construct(){
+       $this->input = self::get_input();
+       $this->len = strlen($this->input);
    }
    // Funkce zkontroluje přítomnost hlavičky, poté zahájí lexikální analýzu
    public function scan(){
@@ -155,26 +155,24 @@
              break;
          }
        }
-
    }
 
- }
-
-
- function get_input(){
-   $in = fopen( 'php://stdin', 'r' );
-   if ($in == FALSE) { // Nepovedlo se otevřít stdin
-     var_dump($in);
-     throw new my_Exception("Nelze otevřít vstupní soubor.", 11);
-   } else{
-       $input = file_get_contents('php://stdin');
-       if ($input == FALSE){
-           var_dump($input);
-           throw new my_Exception("Chyba při načítání vstupu.", 99);
-       }
-       else
-         return $input;
+   function get_input(){
+     $in = fopen( 'php://stdin', 'r' );
+     if ($in === FALSE) { // Nepovedlo se otevřít stdin
+       var_dump($in);
+       throw new my_Exception("Nelze otevřít vstupní soubor.", 11);
+     } else{
+         $input = file_get_contents('php://stdin');
+         if ($input === FALSE){
+             var_dump($input);
+             throw new my_Exception("Chyba při načítání vstupu.", 99);
+         }
+         else
+           return $input;
+     }
    }
+
  }
 
 ?>

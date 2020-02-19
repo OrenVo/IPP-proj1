@@ -4,6 +4,8 @@
  * @file parser.php
  * @brief Soubor obsahující třídu syntaktického analyzátoru
  */
+ require_once __DIR__ . '/error_handler.php';
+ require_once __DIR__ . '/scanner.php';
 
  function parse_args(){
   if ($argc == 2 && $argv[1] == "--help") {
@@ -21,4 +23,6 @@
     exit(ErrVal::ARG_MISS);
   }
  }
+
+
 ?>

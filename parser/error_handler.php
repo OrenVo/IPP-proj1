@@ -15,7 +15,7 @@ class my_Exception extends Exception
 
   public $err_code;
 
-  function __construct(string $err_message,int $err_code)
+  public function __construct(string $err_message,int $err_code)
   {
     $this->err_message = $err_message;
     $this->err_code = $err_code;
