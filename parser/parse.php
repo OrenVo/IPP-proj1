@@ -11,17 +11,13 @@ include_once __DIR__ . '/error_handler.php';
 include_once __DIR__ . '/scanner.php';
 include_once __DIR__ . '/parser.php';
 
-
-
-
 try {
-
-  $scanner = new Scanner();
-  $tokens = $scanner->scan();
-
+    $parser = new Parser();
+    $parser->parse();
+    $parser->output_XML();
 } catch (my_Exception $err) {
   $err->last_words();
 }
 
-
+exit(ErrVal::ALL_OK);
 ?>

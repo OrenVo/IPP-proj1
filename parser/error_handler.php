@@ -4,7 +4,7 @@
  * @file error_handler.php
  * @brief Soubor obsahující třídu vyjímky (my_Exception) a definici návratových hodnot
  */
-
+ declare(strict_types = 1);
 
  /**
  *  Třída mé vlastní vyjímky

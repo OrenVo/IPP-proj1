@@ -4,6 +4,7 @@
  * @file scanner.php
  * @brief Soubor obsahující třídu lexikálního analyzátoru
  */
+ declare(strict_types = 1);
  require_once __DIR__ . '/error_handler.php';
 
 
