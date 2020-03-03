@@ -46,7 +46,7 @@
      if ($position < 1 || $position > 3) {
        throw new my_Exception("Chybná pozice argumentu (může být jen 1, 2, 3)", ErrVal::INTERN_ERR);
      }
-     if ($type <> "int" || $type <> "bool" || $type <> "string" || $type <> "nil" || $type <> "label" || $type <> "type" || $type <> "var") {
+     if ($type <> "int" && $type <> "bool" && $type <> "string" && $type <> "nil" && $type <> "label" && $type <> "type" && $type <> "var") {
        throw new my_Exception("Chybný typ argumentu.", ErrVal::LEX_OR_SYN_ERR);
      }
      if ($type === "string") {
