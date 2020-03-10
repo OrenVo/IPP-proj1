@@ -22,7 +22,7 @@ class my_Exception extends Exception
   }
 
   public function last_words(){
-    fwrite(STDERR,"Odchycena vyjímka na řádku:" . $this->getLine() . ", v souboru: " . $this->getFile() . ":\n\t Chyba: " . $this->err_message . "\n");
+    fwrite(STDERR,"Odchycena vyjímka v souboru: " . basename($this->getFile()) . ":" . $this->getLine() . ":\n\t Chyba: " . $this->err_message . "\n");
     die($this->err_code);
   }
 }
