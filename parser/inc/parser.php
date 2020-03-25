@@ -73,17 +73,17 @@
  class Parser
  {
 
-   private const HEADER = '/^\s*\.IPPcode20((\s+)#.*$)|\s*$/i';
+   private const HEADER = '/^\s*(\.IPPcode20)(((\s+)#.*$)|(\s*$))/i';
    private const COMMENT_LINE = '/^\s*#.*$/';
    /* TYPY */
-   private const T_TYPE = '/^(bool)|(int)|(string)$/';
-   private const T_NIL = '/^nil@nil$/';
-   private const T_INT = '/^int@[0-9]+$/';
-   private const T_BOOL = '/^bool@(true|false)$/';
-   private const T_STRING = '/^string@([^\s#\\\\]|\\\\[0-9]{3})*$/u';
+   private const T_TYPE = '/^((bool)|(int)|(string))$/';
+   private const T_NIL = '/^(nil@nil)$/';
+   private const T_INT = '/^(int@([+\-]|[0-9])[0-9]*)$/';
+   private const T_BOOL = '/^(bool@(true|false))$/';
+   private const T_STRING = '/^(string@([^\s#\\\\]|\\\\[0-9]{3})*)$/u';
    /* Identifikátor */
-   private const ID = '/(GF|LF|TF)@[_\-\$&%\*!\?a-zA-Z][_\-\$&%\*!\?a-zA-Z0-9]*/';
-   private const LABEL = '/[_\-\$&%\*!\?a-zA-Z][_\-\$&%\*!\?a-zA-Z0-9]*/';
+   private const ID = '/^(GF|LF|TF)@[_\-\$&%\*!\?a-zA-Z][_\-\$&%\*!\?a-zA-Z0-9]*$/';
+   private const LABEL = '/^[_\-\$&%\*!\?a-zA-Z][_\-\$&%\*!\?a-zA-Z0-9]*$/';
    public $line_num = 1;
    private $instruction_order = 1;
    public $XML;
@@ -100,16 +100,31 @@
 
    public function parse(){
 
-     $line = fgets(STDIN);
-     if ($line === FALSE || 1 <> preg_match(self::HEADER,$line)) {
+     while ( ($line = fgets(STDIN)) !== FALSE ) { $this->line_num++;
+       if (preg_match('/^\s*$/',$line) )
+         continue;
+        elseif ( preg_match('/^\s*#.*$/',$line)) { $this->comments++;
+          continue;
+        }
+       else break;
+     }
+     if ($line === FALSE) {
+       exit(0);
+     }
+     $line = preg_split('/#/',$line);
+     $line = $line[0];
+     if (!preg_match(self::HEADER,$line)) {
        throw new my_Exception("Chybí hlavička na řádku $this->line_num.\n",ErrVal::HEADER_MISS);
      }
-     if (preg_match('\s+#.*',$line)) {
+     if (preg_match('/^\s+#.*$/',$line)) {
        $this->comments++;
      }
-     $this->line_num++;
      while ( ($line = fgets(STDIN)) !== FALSE ) { $this->line_num++;
-       if ($line == "\n")
+
+       if (preg_match('/#.*/',$line)) $this->comments++;
+       $line = preg_split('/#/',$line);
+       $line = $line[0];
+       if (preg_match('/^\s*$/',$line))
          continue;
        elseif (preg_match(self::COMMENT_LINE,$line)){
          $this->comments++;
@@ -155,13 +170,11 @@
          case "SUB":
          case "MUL":
          case "IDIV":
-         case "LG":
+         case "LT":
          case "GT":
          case "EQ":
          case "AND":
          case "OR":
-         case "NOT":
-         case "INT2CHAR":
          case "STRI2INT":
          case "CONCAT":
          case "GETCHAR":
@@ -172,7 +185,7 @@
             }
             $this->comments++;
           }
-          elseif (count($line_arr) < 3) {
+          elseif (count($line_arr) < 4) {
             throw new my_Exception("Instrukce: $line_arr[0] na řádku: $this->line_num očekává 3 argumenty.", ErrVal::LEX_OR_SYN_ERR);
           }
           $this->XML->add_ins($this->instruction_order++,$line_arr[0],self::var($line_arr[1],1),self::symb($line_arr[2],2),self::symb($line_arr[3],3));
@@ -192,6 +205,8 @@
           break;
          /**   <var> <symb>   **/
          case "MOVE":
+         case "INT2CHAR":
+         case "NOT":
          case "STRLEN":
          case "TYPE":
           if (count($line_arr) > 3) {
@@ -232,7 +247,7 @@
             }
             $this->comments++;
           }
-          elseif (count($line_arr) < 3) {
+          elseif (count($line_arr) < 4) {
             throw new my_Exception("Instrukce: $line_arr[0] na řádku: $this->line_num očekává 3 argumenty.", ErrVal::LEX_OR_SYN_ERR);
           }
           $this->XML->add_ins($this->instruction_order++,$line_arr[0],self::label($line_arr[1],1),self::symb($line_arr[2],2),self::symb($line_arr[3],3));
@@ -245,10 +260,13 @@
          case "DPRINT":
            if (count($line_arr) > 2) {
              if ($line_arr[2][0] !== "#") {
-               throw new my_Exception("Instrukce: $line_arr[0] na řádku: $this->line_num neočekává žádný argument.", ErrVal::LEX_OR_SYN_ERR);
+               throw new my_Exception("Instrukce: $line_arr[0] na řádku: $this->line_num neočekává jeden argument.", ErrVal::LEX_OR_SYN_ERR);
              }
              $this->comments++;
            }
+           elseif (count($line_arr) < 2)
+             throw new my_Exception("Instrukce: $line_arr[0] na řádku: $this->line_num očekává 1 argumenty.", ErrVal::LEX_OR_SYN_ERR);
+
            $this->XML->add_ins($this->instruction_order++,$line_arr[0],self::symb($line_arr[1],1));
            break;
          default:

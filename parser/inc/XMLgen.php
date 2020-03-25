@@ -49,11 +49,11 @@
      if ($type <> "int" && $type <> "bool" && $type <> "string" && $type <> "nil" && $type <> "label" && $type <> "type" && $type <> "var") {
        throw new my_Exception("Chybný typ argumentu.", ErrVal::LEX_OR_SYN_ERR);
      }
-     if ($type === "string") {
-       $attr = str_replace("&","&amp;",$attr);
-       $attr = str_replace("<","&lt;",$attr);
-       $attr = str_replace(">","&gt;",$attr);
-     }
+     $attr = str_replace("&","&amp;",$attr);
+     $attr = str_replace("<","&lt;",$attr);
+     $attr = str_replace(">","&gt;",$attr);
+     $attr = str_replace("\"","&quot;",$attr);
+     $attr = str_replace("'","&apos;",$attr);
      return new ARG($type, $attr, $position);
    }
 

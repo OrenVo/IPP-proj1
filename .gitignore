@@ -1,0 +1,7 @@
+*.tgz
+Testy/
+is_it_ok_TEST_DIR/
+*.pdf
+is_it_ok.sh
+*.tbz
+*.txt
