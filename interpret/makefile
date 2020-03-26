@@ -1,0 +1,21 @@
+####################################
+# Makefile pro IPP interpret       #
+# Autor: Vojtěch Ulej (xulejv00)   #
+####################################
+
+ARCH = xulejv00.tbz2
+PACKFILES = makefile interpret.py src test.php #readme2.md
+
+PHONY: pack
+pack: clean $(ARCH)
+
+.PHONY: clean
+clean:
+	rm -rf xulejv00.tbz2 ./__pycache__ src/__pycache__
+
+$(ARCH): $(PACKFILES)
+	tar -acvf $@ $^ && rm -rf test.php
+test.php: ../test/test.php
+	cp ../test/test.php .
+.PHONY: test
+test: ../test
