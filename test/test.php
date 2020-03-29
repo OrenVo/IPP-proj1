@@ -168,7 +168,7 @@ class my_Exception extends Exception{
 class HTML{
   public $succ_tests = 0;
   public $failed_tests = 0;
-  public $test_count = 0;
+  public $test_count = 1;
   public $HTML_out;
   public function __construct(){
     $this->HTML_out = "<!DOCTYPE HTML>\n<html>\n<head>\n<meta charset=\"utf-8\">\n<title>IPP projekt</title>\n</head>\n<body>\n<h3>autor: Vojtěch Ulej (xulejv00)<h3>\n";}
@@ -185,6 +185,7 @@ class HTML{
     $this->HTML_out = $this->HTML_out . "<font color=\"red\"> $name TEST ČÍSLO:" . $this->test_count++ . " failed (návratová hodnota $retval očekávaná $exp_retval)</font> &#10060;<br>\n";
   }
   public function final_stats($test_count = 0, $succ_tests = 0, $failed = 0){
+    if ($test_count == $this->test_count) $test_count--;
     if ($test_count != 0)
       $rate = round(($succ_tests/$test_count)*100, 2);
     else
@@ -193,6 +194,13 @@ class HTML{
   }
   public function dir_name($name){
     $this->HTML_out = $this->HTML_out . "<h4><b>Složka: $name:</b></h4><br>\n";
+  }
+  public function dir_stats($name, $test_count = 0, $succ_tests = 0, $failed = 0){
+    if ($test_count != 0)
+      $rate = round(($succ_tests/$test_count)*100, 2);
+    else
+      $rate = 100;
+    $this->HTML_out = $this->HTML_out . "\nStatistika složky $name<br>\nPočet testů: $test_count<br>\nPočet úspěšných testů: $succ_tests<br>\nPočet neúspěšných testů: $failed<br>\nÚspěšnost: $rate%\n";
   }
 }
 
@@ -214,7 +222,13 @@ class Tester{
         }
       }
     }
+    $dir = str_replace('//','/',$dir);
+    /*Proměné pro statistiky složky*/
+    $dir_tests = 1;
+    $dir_succ = $dir_failed = 0;
     $this->html->dir_name($dir);
+    global $int_only; global $parse_only;
+    $both = !isset($int_only) && !isset($parse_only);
     foreach ($files as $file) {
       if (is_dir($file))
         continue;
@@ -258,36 +272,66 @@ class Tester{
 
       /*Parser test*/
       global $parse_skript;
+      global $parse_only;
+      global $int_only;
       if (isset($parse_only) || (!isset($parse_only) && !isset($int_only))) {
         exec("timeout 3 php7.4 -f $parse_skript < $dir/$file 2> /dev/null > temp_pars.out ", $output, $retval);
-        if ($retval === 124)
-          $this->html->failed_test($file, $retval, $rc);
-        elseif ($retval !== $rc)
-          $this->html->failed_test($file, $retval, $rc);
+        if ($retval === 124){
+          $this->html->failed_test($file, $retval, $rc); $dir_failed++; $dir_tests++; continue;
+        }
+        elseif ($retval !== $rc){
+          $this->html->failed_test($file, $retval, $rc); $dir_failed++; $dir_tests++; continue;
+        }
         else
           if ($rc != 0) {
-            $this->html->succ_test($file, $retval, $rc);
+            if (!$both)
+              $this->html->succ_test($file, $retval, $rc); $dir_succ++; $dir_tests++;
           }
           else{
             global $jexamxml_skript;
             exec("java -jar $jexamxml_skript " . $dir . '/' . str_replace(".src", ".out", $file) . " temp_pars.out", $out, $retval);
 
             if ($retval !== 0 ) {
-              $this->html->failed_test($file, $retval, 0);
+              $this->html->failed_test($file, $retval, 0); $dir_failed++; $dir_tests++; continue;
             }
             else
-             $this->html->succ_test($file, $retval, 0);
+              if (!$both)
+                $this->html->succ_test($file, $retval, 0); $dir_succ++; $dir_tests++;
           }
       }
       /*Int test*/
       global $int_skript;
-
+      if (isset($int_only) || (!isset($parse_only) && !isset($int_only))) {
+        if (isset($int_only)) $src = $file;
+        else $src = "temp_pars.out";
+        exec("timeout 3 python3.8 $int_skript --source=$src --input=" . $dir . "/" . str_replace(".src", ".in", $file) . " 1> temp_int.out 2> /dev/null", $out, $retval);
+        if ($rc != $retval) {
+          $this->html->failed_test($file, $retval, $rc); $dir_failed++; $dir_tests++;
+        }
+        else {
+          if ($retval == 0) {
+            exec("diff temp_int.out " . $dir . "/" . str_replace(".src", ".out", $file), $out0, $retval);
+            fwrite(STDERR,$retval . "\n");
+            if ($retval == 0){
+              $this->html->succ_test($file, $retval, 0); $dir_succ++; $dir_tests++;
+            }
+            else $this->html->failed_test($file, $retval, 0); $dir_failed++; $dir_tests++;
+          }
+          else {
+            $this->html->succ_test($file, $retval, $rc); $dir_succ++; $dir_tests++;
+          }
+        }
+      }
       fclose($file_in);
       fclose($file_rc);
       fclose($file_out);
     }
     exec("rm -f temp_pars.out");
     exec("rm -f temp_int.out");
+    global $recursive;
+    if ($dir_tests != 1 && isset($recursive)) {
+      $this->html->dir_stats($dir,$dir_tests - 1,$dir_succ,$dir_failed);
+    }
   }
   public function HTML_out(){
     $this->html->final_stats($this->html->test_count, $this->html->succ_tests, $this->html->failed_tests);

@@ -4,8 +4,13 @@
 ####################################
 
 ARCH = xulejv00.tbz2
-PACKFILES = makefile interpret.py src test.php #readme2.md
+PACKFILES = makefile interpret.py src test.php readme2.md rozsireni
+SRC = interpret.py src/*.py
+PYTHON = python3.8
 
+.PHONY: run
+run: $(SRC)
+	$(PYTHON) interpret.py $(ARGS)
 PHONY: pack
 pack: clean $(ARCH)
 
