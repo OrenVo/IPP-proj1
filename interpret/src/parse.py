@@ -19,8 +19,9 @@ class ARGS:
 
     def ParseArgs(self):
         if len(argv) < 2:
-            raise InterpretException(f'Nebyl zadán žádný argument.\n Pro nápovědu použijte [--help]', ErrorCodes.parameter)
-        for arg in argv[1:]:    # odstranění prvního prvku (název programu)
+            raise InterpretException(f'Nebyl zadán žádný argument.\n Pro nápovědu použijte [--help]',
+                                     ErrorCodes.parameter)
+        for arg in argv[1:]:  # odstranění prvního prvku (název programu)
             # Základní argumenty
             if re.match(r'^--input=', arg):
                 if self.input is not None:
@@ -69,8 +70,9 @@ def PrintHelp():
 
 class XML:
     """Načte, zkontroluje a zpracuje XML"""
+
     def __init__(self, source):
-        self.source = source # Jméno souboru, nebo stdin
+        self.source = source  # Jméno souboru, nebo stdin
         self.XML = None
         self.instructions = []
         self.labels = {}
@@ -92,15 +94,110 @@ class XML:
             element = ET.fromstring(inp)
         except ET.ParseError:
             raise InterpretException('Chyba při parsování XML.', ErrorCodes.badxml)
-        if elemet.tag != 'program':
+        if element.tag != 'program':
             raise InterpretException('Chybí kořenový element program.', ErrorCodes.badxml)
-        if element.attrib['language'] is not None and element.attrib['language'].lower()  != 'ippcode20':
+        if element.attrib['language'] is not None and element.attrib['language'].lower() != 'ippcode20':
             raise InterpretException('Chybí, nebo špatný atribut kořenového elementu.', ErrorCodes.badxml)
         self.XML = element
+        try:
+            self.LoadXML()
+        except IndexError:
+            raise InterpretException('Chybějící instrukce', ErrorCodes.syntaxErr)
+        except KeyError:
+            raise InterpretException('Špatné atributy XML', ErrorCodes.badxml)
 
     def LoadXML(self):
         for ins in self.XML:
             if ins.tag != 'instruction':
-                raise InterpretException(f'Neznámý element {ins.tag} v xml',ErrorCodes.badxml)
-            if re.fullmatch(r'label', ins, re.IGNORECASE):
-                ...
+                raise InterpretException(f'Neznámý element {ins.tag} v xml', ErrorCodes.badxml)
+            if re.match(r'^label$', ins.attrib['opcode'], re.IGNORECASE):
+                if len(ins) == 0:
+                    raise InterpretException(f'Chybí argument u instrukce LABEL', ErrorCodes.syntaxErr)
+                if ins[0].tag != 'arg1':
+                    raise InterpretException(f'Neznámý element {ins[0].tag} v xml', ErrorCodes.badxml)
+                if ins[0].attrib['type'] != 'label':
+                    raise InterpretException(f'Špatný typ instrukce argumentu u instrukce LABEL', ErrorCodes.syntaxErr)
+                if ins[0].text not in self.labels.keys():
+                    self.labels[ins[0].text] = ins.attrib['order']
+                else:
+                    raise InterpretException(f'Návěští: {ins[0].text} bylo použito více než jednou',
+                                             ErrorCodes.semanticErr)
+            else:
+                self.instructions.append(ins)
+        self.instructions.sort(key=lambda el: int(el.attrib['order']))
+        self.CheckIns()
+
+    def CheckIns(self):
+        for ins in self.instructions:
+            instruction = ins.attrib['opcode']
+            i = self.InsArgs(instruction)
+            if i is None:
+                raise InterpretException(f'Neznámá instrukce: {instruction}', ErrorCodes.syntaxErr)
+            print(f'{instruction}:')
+            del instruction
+
+            for index, arg in enumerate(i):
+                idx = index + 1
+                print(ins[index].attrib['type'])
+                if arg == '<var>':
+                    if ins[index].tag != f'arg{idx}':
+                        raise InterpretException(f'Špatný název elementu {ins[index].tag}', ErrorCodes.badxml)
+                    if ins[index].attrib['type'] != 'var':
+                        raise InterpretException(f'{ins[index].tag} musí být typu var', ErrorCodes.syntaxErr)
+                elif arg == '<symb>':
+                    print('\t<symb>')
+                elif arg == '<label>':
+                    if ins[index].tag != f'arg{idx}':
+                        raise InterpretException(f'Špatný název elementu {ins[index].tag}', ErrorCodes.badxml)
+                    if ins[index].attrib['type'] != 'label':
+                        raise InterpretException(f'{ins[index].tag} musí být typu var', ErrorCodes.syntaxErr)
+                elif arg == '<type>':
+                    if ins[index].tag != f'arg{idx}':
+                        raise InterpretException(f'Špatný název elementu {ins[index].tag}', ErrorCodes.badxml)
+                    if ins[index].attrib['type'] != 'type':
+                        raise InterpretException(f'{ins[index].tag} musí být typu var', ErrorCodes.syntaxErr)
+                else:
+                    raise InterpretException(f'Unknown argument {arg}')
+
+    @staticmethod
+    def InsArgs(instruction):
+        ins = instruction.upper()
+        ins_dict = {
+            "CREATEFRAME": [],
+            "PUSHFRAME": [],
+            "POPFRAME": [],
+            "RETURN": [],
+            "BREAK": [],
+            "DEFVAR": ['<var>'],
+            "POPS": ['<var>'],
+            "ADD": ['<var>', '<symb>', '<symb>'],
+            "SUB": ['<var>', '<symb>', '<symb>'],
+            "MUL": ['<var>', '<symb>', '<symb>'],
+            "IDIV": ['<var>', '<symb>', '<symb>'],
+            "LT": ['<var>', '<symb>', '<symb>'],
+            "GT": ['<var>', '<symb>', '<symb>'],
+            "EQ": ['<var>', '<symb>', '<symb>'],
+            "AND": ['<var>', '<symb>', '<symb>'],
+            "OR": ['<var>', '<symb>', '<symb>'],
+            "STRI2INT": ['<var>', '<symb>', '<symb>'],
+            "CONCAT": ['<var>', '<symb>', '<symb>'],
+            "GETCHAR": ['<var>', '<symb>', '<symb>'],
+            "SETCHAR": ['<var>', '<symb>', '<symb>'],
+            "READ": ['<var>', '<type>'],
+            "MOVE": ['<var>', '<symb>'],
+            "INT2CHAR": ['<var>', '<symb>'],
+            "INT2FLOAT": ['<var>', '<symb>'],  # Podpora rozšíření FLOAT
+            "FLOAT2INT": ['<var>', '<symb>'],
+            "NOT": ['<var>', '<symb>'],
+            "STRLEN": ['<var>', '<symb>'],
+            "TYPE": ['<var>', '<symb>'],
+            "CALL": ['<label>'],
+            "JUMP": ['<label>'],
+            "JUMPIFEQ": ['<label>', '<symb>', '<symb>'],
+            "JUMPIFNEQ": ['<label>', '<symb>', '<symb>'],
+            "PUSHS": ['<symb>'],
+            "WRITE": ['<symb>'],
+            "EXIT": ['<symb>'],
+            "DPRINT": ['<symb>']
+        }
+        return ins_dict.get(ins, None)
