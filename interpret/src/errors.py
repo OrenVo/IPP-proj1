@@ -28,7 +28,7 @@ class ErrorCodes:
     runtimeMissingVar = 54
     runtimeMissingFrame = 55
     runtimeMissingValue = 56
-    runtimeZeroDivision = 57
+    runtimeBadValue = 57
     runtimeBadStringOperation = 58
     internalError = 99
 
@@ -39,5 +39,18 @@ class InterpretException(Exception):
         self.ec = exitcode
 
     def LastWords(self):
-        eprint(self.msg)
+        if self.msg != '':
+            eprint(self.msg)
         exit(self.ec)
+
+
+class ParserError(InterpretException):
+    pass
+
+
+class StackError(InterpretException):
+    pass
+
+
+class FrameError(InterpretException):
+    pass

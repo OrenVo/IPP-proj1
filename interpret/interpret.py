@@ -8,14 +8,17 @@
 #############################################
 import src.parse as parse
 from src.errors import InterpretException
-import sys
-"""for arg in sys.argv[1:]:
-    print(arg)"""
+from sys import stdin
+from src.int import Interpret
+
 if __name__ == '__main__':
     args = parse.ARGS()
     try:
         args.ParseArgs()
-        XML = parse.XML('stdin' if args.src is None else args.src)
+        XML = parse.XML(stdin if args.src is None else args.src)
         XML.ReadNCheck()
+        XML.LoadIns()
+        interpret = Interpret(XML.instructions, XML.labels)
+        interpret.Interpret()
     except InterpretException as ex:
         ex.LastWords()

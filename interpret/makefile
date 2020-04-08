@@ -10,7 +10,7 @@ PYTHON = python3.8
 
 .PHONY: run
 run: $(SRC)
-	$(PYTHON) interpret.py $(ARGS)
+	$(PYTHON) -B interpret.py $(ARGS)
 PHONY: pack
 pack: clean $(ARCH)
 

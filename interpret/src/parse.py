@@ -78,8 +78,7 @@ class XML:
         self.labels = {}
 
     def ReadNCheck(self):
-        inp = ''
-        if self.source == 'stdin':
+        if self.source == stdin:
             inp = stdin.read()
         else:
             if os.path.isfile(self.source):
@@ -133,19 +132,22 @@ class XML:
             i = self.InsArgs(instruction)
             if i is None:
                 raise InterpretException(f'Neznámá instrukce: {instruction}', ErrorCodes.syntaxErr)
-            print(f'{instruction}:')
             del instruction
 
             for index, arg in enumerate(i):
                 idx = index + 1
-                print(ins[index].attrib['type'])
                 if arg == '<var>':
                     if ins[index].tag != f'arg{idx}':
                         raise InterpretException(f'Špatný název elementu {ins[index].tag}', ErrorCodes.badxml)
                     if ins[index].attrib['type'] != 'var':
                         raise InterpretException(f'{ins[index].tag} musí být typu var', ErrorCodes.syntaxErr)
                 elif arg == '<symb>':
-                    print('\t<symb>')
+                    if ins[index].tag != f'arg{idx}':
+                        raise InterpretException(f'Špatný název elementu {ins[index].tag}', ErrorCodes.badxml)
+                    tmp = ins[index].attrib['type']
+                    if tmp != 'var' and tmp != 'int' and tmp != 'string' and tmp != 'bool' and tmp != 'float' and tmp != 'nil':
+                        raise InterpretException(f'{ins[index].tag} musí být typu var, int, string, bool, float, nebo nil, ale je typu {tmp}', ErrorCodes.syntaxErr)
+                    del tmp
                 elif arg == '<label>':
                     if ins[index].tag != f'arg{idx}':
                         raise InterpretException(f'Špatný název elementu {ins[index].tag}', ErrorCodes.badxml)
@@ -158,6 +160,44 @@ class XML:
                         raise InterpretException(f'{ins[index].tag} musí být typu var', ErrorCodes.syntaxErr)
                 else:
                     raise InterpretException(f'Unknown argument {arg}')
+
+    def LoadIns(self):
+        instructions = self.instructions
+        self.instructions = []
+        for instruction in instructions:
+            self.instructions.append(self.LoadIn(instruction))
+        self.MapLabelToInstruction()
+
+    @staticmethod
+    def LoadIn(instruction):
+        """ Tato metoda zpracuje xml formát instrukce a vytvoří z něj tuple.
+            Tuple bude vypadat následovně: (order, opcode, arg1|None, arg2|None, arg3|None)"""
+
+        order = instruction.attrib['order']
+        opcode = instruction.attrib['opcode']
+        args = [None, None, None]
+        for index, arg in enumerate(instruction):
+            args[index] = arg.text
+
+        return int(order), opcode.upper(), args[0], args[1], args[2]
+
+    def MapLabelToInstruction(self):
+        """Metoda vrátí pozměněný dictionary self.labels. Pozmění se jen hodnoty indexu na instrukce"""
+        keys = list(self.labels)
+        values = []
+        newdict = {}
+        for order in self.labels.values():
+            try:
+                order = int(order)
+            except ValueError:
+                raise InterpretException(f'Špatný order: {order}', ErrorCodes.badxml)
+            for idx, val in enumerate(self.instructions):
+                if val[0] > order or idx == (len(self.instructions) - 1):
+                    values.append(idx)
+                    break
+        for idx, key in enumerate(keys):
+            newdict[key] = values[idx]
+        self.labels = newdict
 
     @staticmethod
     def InsArgs(instruction):
