@@ -1,5 +1,5 @@
 from sys import argv, stdin
-from src.errors import eprint, ErrorCodes, InterpretException
+from src.errors import eprint, ErrorCodes, ParserError
 import re
 import xml.etree.ElementTree as ET
 import os.path
@@ -19,17 +19,17 @@ class ARGS:
 
     def ParseArgs(self):
         if len(argv) < 2:
-            raise InterpretException(f'Nebyl zadán žádný argument.\n Pro nápovědu použijte [--help]',
+            raise ParserError(f'Nebyl zadán žádný argument.\n Pro nápovědu použijte [--help]',
                                      ErrorCodes.parameter)
         for arg in argv[1:]:  # odstranění prvního prvku (název programu)
             # Základní argumenty
             if re.match(r'^--input=', arg):
                 if self.input is not None:
-                    raise InterpretException(f'Argument --input nalezen 2x', ErrorCodes.parameter)
+                    raise ParserError(f'Argument --input nalezen 2x', ErrorCodes.parameter)
                 self.input = arg.replace('--input=', '', 1)
             elif re.match(r'^--source=', arg):
                 if self.src is not None:
-                    raise InterpretException(f'Argument --source nalezen 2x', ErrorCodes.parameter)
+                    raise ParserError(f'Argument --source nalezen 2x', ErrorCodes.parameter)
                 self.src = arg.replace('--source=', '', 1)
             elif re.match(r'--help', arg):
                 PrintHelp()
@@ -37,18 +37,18 @@ class ARGS:
             # Argumenty pro STATI rozšíření
             elif re.match(r'^--stats=', arg):
                 if self.stats is not None:
-                    raise InterpretException(f'Argument --stats nalezen 2x', ErrorCodes.parameter)
+                    raise ParserError(f'Argument --stats nalezen 2x', ErrorCodes.parameter)
                 self.stats = arg.replace('--stats=', '', 1)
             elif re.match(r'^--insts', arg):
                 self.STATI.append('--insts')
             elif re.match(r'^--vars', arg):
                 self.STATI.append('--vars')
             else:
-                raise InterpretException(f'Neznámý argument {arg}', ErrorCodes.parameter)
+                raise ParserError(f'Neznámý argument {arg}', ErrorCodes.parameter)
         if self.input is None and self.src is None:
-            raise InterpretException('Chybějící povinný argument --input, nebo --source', ErrorCodes.parameter)
+            raise ParserError('Chybějící povinný argument --input, nebo --source', ErrorCodes.parameter)
         if self.STATI != [] and self.stats is None:
-            raise InterpretException('Chybějící argument --stats=', ErrorCodes.parameter)
+            raise ParserError('Chybějící argument --stats=', ErrorCodes.parameter)
 
 
 def PrintHelp():
@@ -86,40 +86,40 @@ class XML:
                     with open(self.source, 'r') as file:
                         inp = file.read()
                 except OSError:
-                    raise InterpretException(f'Soubor: {self.source} nelze otevřít', ErrorCodes.inErr)
+                    raise ParserError(f'Soubor: {self.source} nelze otevřít', ErrorCodes.inErr)
             else:
-                raise InterpretException(f'Soubor: {self.source} neexistuje.', ErrorCodes.inErr)
+                raise ParserError(f'Soubor: {self.source} neexistuje.', ErrorCodes.inErr)
         try:
             element = ET.fromstring(inp)
         except ET.ParseError:
-            raise InterpretException('Chyba při parsování XML.', ErrorCodes.badxml)
+            raise ParserError('Chyba při parsování XML.', ErrorCodes.badxml)
         if element.tag != 'program':
-            raise InterpretException('Chybí kořenový element program.', ErrorCodes.badxml)
+            raise ParserError('Chybí kořenový element program.', ErrorCodes.badxml)
         if element.attrib['language'] is not None and element.attrib['language'].lower() != 'ippcode20':
-            raise InterpretException('Chybí, nebo špatný atribut kořenového elementu.', ErrorCodes.badxml)
+            raise ParserError('Chybí, nebo špatný atribut kořenového elementu.', ErrorCodes.badxml)
         self.XML = element
         try:
             self.LoadXML()
         except IndexError:
-            raise InterpretException('Chybějící instrukce', ErrorCodes.syntaxErr)
+            raise ParserError('Chybějící instrukce', ErrorCodes.syntaxErr)
         except KeyError:
-            raise InterpretException('Špatné atributy XML', ErrorCodes.badxml)
+            raise ParserError('Špatné atributy XML', ErrorCodes.badxml)
 
     def LoadXML(self):
         for ins in self.XML:
             if ins.tag != 'instruction':
-                raise InterpretException(f'Neznámý element {ins.tag} v xml', ErrorCodes.badxml)
+                raise ParserError(f'Neznámý element {ins.tag} v xml', ErrorCodes.badxml)
             if re.match(r'^label$', ins.attrib['opcode'], re.IGNORECASE):
                 if len(ins) == 0:
-                    raise InterpretException(f'Chybí argument u instrukce LABEL', ErrorCodes.syntaxErr)
+                    raise ParserError(f'Chybí argument u instrukce LABEL', ErrorCodes.syntaxErr)
                 if ins[0].tag != 'arg1':
-                    raise InterpretException(f'Neznámý element {ins[0].tag} v xml', ErrorCodes.badxml)
+                    raise ParserError(f'Neznámý element {ins[0].tag} v xml', ErrorCodes.badxml)
                 if ins[0].attrib['type'] != 'label':
-                    raise InterpretException(f'Špatný typ instrukce argumentu u instrukce LABEL', ErrorCodes.syntaxErr)
+                    raise ParserError(f'Špatný typ instrukce argumentu u instrukce LABEL', ErrorCodes.syntaxErr)
                 if ins[0].text not in self.labels.keys():
                     self.labels[ins[0].text] = ins.attrib['order']
                 else:
-                    raise InterpretException(f'Návěští: {ins[0].text} bylo použito více než jednou',
+                    raise ParserError(f'Návěští: {ins[0].text} bylo použito více než jednou',
                                              ErrorCodes.semanticErr)
             else:
                 self.instructions.append(ins)
@@ -131,35 +131,35 @@ class XML:
             instruction = ins.attrib['opcode']
             i = self.InsArgs(instruction)
             if i is None:
-                raise InterpretException(f'Neznámá instrukce: {instruction}', ErrorCodes.syntaxErr)
+                raise ParserError(f'Neznámá instrukce: {instruction}', ErrorCodes.syntaxErr)
             del instruction
 
             for index, arg in enumerate(i):
                 idx = index + 1
                 if arg == '<var>':
                     if ins[index].tag != f'arg{idx}':
-                        raise InterpretException(f'Špatný název elementu {ins[index].tag}', ErrorCodes.badxml)
+                        raise ParserError(f'Špatný název elementu {ins[index].tag}', ErrorCodes.badxml)
                     if ins[index].attrib['type'] != 'var':
-                        raise InterpretException(f'{ins[index].tag} musí být typu var', ErrorCodes.syntaxErr)
+                        raise ParserError(f'{ins[index].tag} musí být typu var', ErrorCodes.syntaxErr)
                 elif arg == '<symb>':
                     if ins[index].tag != f'arg{idx}':
-                        raise InterpretException(f'Špatný název elementu {ins[index].tag}', ErrorCodes.badxml)
+                        raise ParserError(f'Špatný název elementu {ins[index].tag}', ErrorCodes.badxml)
                     tmp = ins[index].attrib['type']
                     if tmp != 'var' and tmp != 'int' and tmp != 'string' and tmp != 'bool' and tmp != 'float' and tmp != 'nil':
-                        raise InterpretException(f'{ins[index].tag} musí být typu var, int, string, bool, float, nebo nil, ale je typu {tmp}', ErrorCodes.syntaxErr)
+                        raise ParserError(f'{ins[index].tag} musí být typu var, int, string, bool, float, nebo nil, ale je typu {tmp}', ErrorCodes.syntaxErr)
                     del tmp
                 elif arg == '<label>':
                     if ins[index].tag != f'arg{idx}':
-                        raise InterpretException(f'Špatný název elementu {ins[index].tag}', ErrorCodes.badxml)
+                        raise ParserError(f'Špatný název elementu {ins[index].tag}', ErrorCodes.badxml)
                     if ins[index].attrib['type'] != 'label':
-                        raise InterpretException(f'{ins[index].tag} musí být typu var', ErrorCodes.syntaxErr)
+                        raise ParserError(f'{ins[index].tag} musí být typu var', ErrorCodes.syntaxErr)
                 elif arg == '<type>':
                     if ins[index].tag != f'arg{idx}':
-                        raise InterpretException(f'Špatný název elementu {ins[index].tag}', ErrorCodes.badxml)
+                        raise ParserError(f'Špatný název elementu {ins[index].tag}', ErrorCodes.badxml)
                     if ins[index].attrib['type'] != 'type':
-                        raise InterpretException(f'{ins[index].tag} musí být typu var', ErrorCodes.syntaxErr)
+                        raise ParserError(f'{ins[index].tag} musí být typu var', ErrorCodes.syntaxErr)
                 else:
-                    raise InterpretException(f'Unknown argument {arg}')
+                    raise ParserError(f'Unknown argument {arg}')
 
     def LoadIns(self):
         instructions = self.instructions
@@ -190,10 +190,13 @@ class XML:
             try:
                 order = int(order)
             except ValueError:
-                raise InterpretException(f'Špatný order: {order}', ErrorCodes.badxml)
+                raise ParserError(f'Špatný order: {order}', ErrorCodes.badxml)
             for idx, val in enumerate(self.instructions):
-                if val[0] > order or idx == (len(self.instructions) - 1):
+                if val[0] > order:
                     values.append(idx)
+                    break
+                elif idx == (len(self.instructions) - 1):
+                    values.append(idx+1)
                     break
         for idx, key in enumerate(keys):
             newdict[key] = values[idx]

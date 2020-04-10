@@ -1,3 +1,6 @@
+from src.errors import StackError
+
+
 class Stack:
     def __init__(self):
         self.data = []
@@ -16,7 +19,3 @@ class Stack:
         if len(self.data) == 0:
             raise StackError
         return self.data[-1]
-
-
-class StackError(Exception):
-    pass

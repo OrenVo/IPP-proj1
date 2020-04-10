@@ -1,23 +1,7 @@
-
-	
-  
-.IPPcOde20	 
-
-
-
-#dsaj
-
-
-
-CREATEFRAME #asdnl alkds nasd alksd
-PUSHFRAME
-
+.IPPcOde20
 POPFRAME
 RETURN
 BREAK
- 	
-  	
-	
 LABEL LABEL
 LABEL POPS
 POPS TF@a
