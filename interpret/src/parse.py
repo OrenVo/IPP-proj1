@@ -94,26 +94,35 @@ class XML:
         except ET.ParseError:
             raise ParserError('Chyba při parsování XML.', ErrorCodes.badxml)
         if element.tag != 'program':
-            raise ParserError('Chybí kořenový element program.', ErrorCodes.badxml)
+            raise ParserError('Chybí kořenový element program.', ErrorCodes.syntaxErr)
         if element.attrib['language'] is not None and element.attrib['language'].lower() != 'ippcode20':
-            raise ParserError('Chybí, nebo špatný atribut kořenového elementu.', ErrorCodes.badxml)
+            raise ParserError('Chybí, nebo špatný atribut kořenového elementu.', ErrorCodes.syntaxErr)
         self.XML = element
         try:
             self.LoadXML()
         except IndexError:
             raise ParserError('Chybějící instrukce', ErrorCodes.syntaxErr)
         except KeyError:
-            raise ParserError('Špatné atributy XML', ErrorCodes.badxml)
+            raise ParserError('Špatné atributy XML', ErrorCodes.syntaxErr)
 
     def LoadXML(self):
+        orders = []
         for ins in self.XML:
+            if 'order' not in ins.attrib:
+                raise ParserError(f'Chybí order', ErrorCodes.syntaxErr)
+            try:
+                if int(ins.attrib['order']) <= 0:
+                    raise ParserError(f'Hodnota order je záporná', ErrorCodes.syntaxErr)
+            except ValueError:
+                raise ParserError(f'Hodnota order není číslo', ErrorCodes.syntaxErr)
+            orders.append(ins.attrib['order'])
             if ins.tag != 'instruction':
-                raise ParserError(f'Neznámý element {ins.tag} v xml', ErrorCodes.badxml)
+                raise ParserError(f'Neznámý element {ins.tag} v xml', ErrorCodes.syntaxErr)
             if re.match(r'^label$', ins.attrib['opcode'], re.IGNORECASE):
                 if len(ins) == 0:
                     raise ParserError(f'Chybí argument u instrukce LABEL', ErrorCodes.syntaxErr)
                 if ins[0].tag != 'arg1':
-                    raise ParserError(f'Neznámý element {ins[0].tag} v xml', ErrorCodes.badxml)
+                    raise ParserError(f'Neznámý element {ins[0].tag} v xml', ErrorCodes.syntaxErr)
                 if ins[0].attrib['type'] != 'label':
                     raise ParserError(f'Špatný typ instrukce argumentu u instrukce LABEL', ErrorCodes.syntaxErr)
                 if ins[0].text not in self.labels.keys():
@@ -123,6 +132,8 @@ class XML:
                                              ErrorCodes.semanticErr)
             else:
                 self.instructions.append(ins)
+        if len(orders) != len(set(orders)):
+            raise ParserError('Duplicitní hodnoty order', ErrorCodes.syntaxErr)
         self.instructions.sort(key=lambda el: int(el.attrib['order']))
         self.CheckIns()
 
@@ -133,29 +144,51 @@ class XML:
             if i is None:
                 raise ParserError(f'Neznámá instrukce: {instruction}', ErrorCodes.syntaxErr)
             del instruction
-
+            arguments = []
+            for args in ins:
+                arguments.append(args)
+            arguments.sort(key=lambda x: int(x.tag[-1]))
+            ins = arguments
+            if len(arguments) != len(i):
+                raise ParserError('Chybí, nebo přebývá argument', ErrorCodes.syntaxErr)
             for index, arg in enumerate(i):
-                idx = index + 1
                 if arg == '<var>':
-                    if ins[index].tag != f'arg{idx}':
-                        raise ParserError(f'Špatný název elementu {ins[index].tag}', ErrorCodes.badxml)
+                    if ins[index].tag != f'arg1' and ins[index].tag != f'arg2' and ins[index].tag != f'arg3':
+                        raise ParserError(f'Špatný název elementu {ins[index].tag}', ErrorCodes.syntaxErr)
                     if ins[index].attrib['type'] != 'var':
                         raise ParserError(f'{ins[index].tag} musí být typu var', ErrorCodes.syntaxErr)
                 elif arg == '<symb>':
-                    if ins[index].tag != f'arg{idx}':
-                        raise ParserError(f'Špatný název elementu {ins[index].tag}', ErrorCodes.badxml)
+                    if ins[index].tag != f'arg1' and ins[index].tag != f'arg2' and ins[index].tag != f'arg3':
+                        raise ParserError(f'Špatný název elementu {ins[index].tag}', ErrorCodes.syntaxErr)
                     tmp = ins[index].attrib['type']
                     if tmp != 'var' and tmp != 'int' and tmp != 'string' and tmp != 'bool' and tmp != 'float' and tmp != 'nil':
-                        raise ParserError(f'{ins[index].tag} musí být typu var, int, string, bool, float, nebo nil, ale je typu {tmp}', ErrorCodes.syntaxErr)
+                        raise ParserError(f'{ins[index].tag} musí být typu var, int, string, bool, float, nebo nil, '
+                                          f'ale je typu {tmp}', ErrorCodes.syntaxErr)
+                    try:
+                        if tmp == 'int':
+                            int(ins[index].text)
+                        elif tmp == 'bool':
+                            if not (ins[index].text == 'true' or ins[index].text == 'false'):
+                                raise ValueError
+                        elif tmp == 'float':
+                            float.fromhex(ins[index].text)
+                        elif tmp == 'nil':
+                            if not ins[index].text == 'nil':
+                                raise ValueError
+                        elif tmp == 'var':
+                            if not re.match(r'^[TLG]F@',ins[index].text):
+                                raise ValueError
+                    except ValueError:
+                        raise ParserError('Špatný typ argumentů', ErrorCodes.syntaxErr)
                     del tmp
                 elif arg == '<label>':
-                    if ins[index].tag != f'arg{idx}':
-                        raise ParserError(f'Špatný název elementu {ins[index].tag}', ErrorCodes.badxml)
+                    if ins[index].tag != f'arg1' and ins[index].tag != f'arg2' and ins[index].tag != f'arg3':
+                        raise ParserError(f'Špatný název elementu {ins[index].tag}', ErrorCodes.syntaxErr)
                     if ins[index].attrib['type'] != 'label':
                         raise ParserError(f'{ins[index].tag} musí být typu var', ErrorCodes.syntaxErr)
                 elif arg == '<type>':
-                    if ins[index].tag != f'arg{idx}':
-                        raise ParserError(f'Špatný název elementu {ins[index].tag}', ErrorCodes.badxml)
+                    if ins[index].tag != f'arg1' and ins[index].tag != f'arg2' and ins[index].tag != f'arg3':
+                        raise ParserError(f'Špatný název elementu {ins[index].tag}', ErrorCodes.syntaxErr)
                     if ins[index].attrib['type'] != 'type':
                         raise ParserError(f'{ins[index].tag} musí být typu var', ErrorCodes.syntaxErr)
                 else:
@@ -176,10 +209,24 @@ class XML:
         order = instruction.attrib['order']
         opcode = instruction.attrib['opcode']
         args = [None, None, None]
+        types = [None, None, None]
         for index, arg in enumerate(instruction):
-            args[index] = arg.text
-
-        return int(order), opcode.upper(), args[0], args[1], args[2]
+            if arg.tag == 'arg1':
+                index = 0
+            elif arg.tag == 'arg2':
+                index = 1
+            elif arg.tag == 'arg3':
+                index = 2
+            if arg.attrib['type'] == 'string':
+                args[index] = string_escape(arg.text)
+            else:
+                args[index] = arg.text
+            types[index] = arg.attrib['type']
+        if args[0] is None and (args[1] is not None or args[2] is not None):
+            raise ParserError(f'Chybějící argument', ErrorCodes.syntaxErr)
+        elif args[1] is None and args[2] is not None:
+            raise ParserError(f'Chybějící argument', ErrorCodes.syntaxErr)
+        return int(order), opcode.upper(), args[0], args[1], args[2], types
 
     def MapLabelToInstruction(self):
         """Metoda vrátí pozměněný dictionary self.labels. Pozmění se jen hodnoty indexu na instrukce"""
@@ -190,8 +237,12 @@ class XML:
             try:
                 order = int(order)
             except ValueError:
-                raise ParserError(f'Špatný order: {order}', ErrorCodes.badxml)
+                raise ParserError(f'Špatný order: {order}', ErrorCodes.syntaxErr)
+            if order < 0:
+                raise ParserError(f'Záporný element order', ErrorCodes.syntaxErr)
             for idx, val in enumerate(self.instructions):
+                if val[0] < 0:
+                    raise ParserError(f'Záporný element order', ErrorCodes.syntaxErr)
                 if val[0] > order:
                     values.append(idx)
                     break
@@ -217,6 +268,7 @@ class XML:
             "SUB": ['<var>', '<symb>', '<symb>'],
             "MUL": ['<var>', '<symb>', '<symb>'],
             "IDIV": ['<var>', '<symb>', '<symb>'],
+            "DIV": ['<var>', '<symb>', '<symb>'],
             "LT": ['<var>', '<symb>', '<symb>'],
             "GT": ['<var>', '<symb>', '<symb>'],
             "EQ": ['<var>', '<symb>', '<symb>'],
@@ -241,6 +293,28 @@ class XML:
             "PUSHS": ['<symb>'],
             "WRITE": ['<symb>'],
             "EXIT": ['<symb>'],
-            "DPRINT": ['<symb>']
+            "DPRINT": ['<symb>'],
+            "JUMPIFEQS": ['<label>'],
+            "JUMPIFNEQS": ['<label>'],
+            "ADDS": [],
+            "SUBS": [],
+            "MULS": [],
+            "DIVS": [],
+            "IDIVS": [],
+            "LTS": [],
+            "GTS": [],
+            "EQS": [],
+            "ANDS": [],
+            "ORS": [],
+            "NOTS": [],
+            "INT2FLOATS": [],
+            "FLOAT2INTS": [],
+            "INT2CHARS": [],
+            "STRI2INTS": [],
+            "CLEARS": []
         }
         return ins_dict.get(ins, None)
+
+
+def string_escape(string):
+    return re.sub(r'\\[0-9]{3}', lambda x: chr(int(x.group(0)[1:])), string)

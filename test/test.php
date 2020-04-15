@@ -39,10 +39,13 @@ function args_parse($argc, $argv){
     if ($argc == 1) {
       return ErrVal::ARG_MISS;
     }
+    $first = true;
     foreach ($argv as $arg) {
 
-      if ($arg == basename(__FILE__))   # ignore $argv[0]
+      if ($first){   # ignore $argv[0]
+        $first = false;
         continue;
+    }
       elseif ($arg == '--help')         # print help and stop
         if ($argc > 2)
           return ErrVal::ARG_MISS;
@@ -109,7 +112,7 @@ function args_parse($argc, $argv){
          throw new my_Exception("Neznámý parametr $arg", ErrVal::ARG_MISS);
     }
     if (!isset($directory)) $directory = '.';
-    if (!isset($int_skript)) $int_skript = './interpre.py';
+    if (!isset($int_skript)) $int_skript = './interpret.py';
     if (!isset($parse_skript)) $parse_skript = './parse.php';
     if (!isset($jexamxml_skript)) $jexamxml_skript = ' /pub/courses/ipp/jexamxml/jexamxml.jar';
 }
@@ -132,7 +135,9 @@ function TestFiles(){
   if (!isset($int_only)){
     if (!file_exists($parse_skript)) throw new my_Exception("Soubor:$parse_skript nelze otevřít.", ErrVal::SOURCE_FILE_ERR);
   }
-  if (!file_exists($jexamxml_skript)) throw new my_Exception("Soubor: $jexamxml_skript nelze otevřít.", ErrVal::SOURCE_FILE_ERR);
+  if (!isset($int_only)){
+    if (!file_exists($jexamxml_skript)) throw new my_Exception("Soubor: $jexamxml_skript nelze otevřít.", ErrVal::SOURCE_FILE_ERR);
+  }
 
 }
 
@@ -178,10 +183,12 @@ class HTML{
 
   public function succ_test($name, $retval, $exp_retval){
     $this->succ_tests++;
+    $name = str_replace(".src", "", $name);
     $this->HTML_out = $this->HTML_out . "<font color=\"green\"> $name TEST ČÍSLO:" . $this->test_count++ . " passed (návratová hodnota $retval očekávaná $exp_retval)</font> &#10004;<br>\n";
   }
   public function failed_test($name, $retval, $exp_retval){
     $this->failed_tests++;
+    $name = str_replace(".src", "", $name);
     $this->HTML_out = $this->HTML_out . "<font color=\"red\"> $name TEST ČÍSLO:" . $this->test_count++ . " failed (návratová hodnota $retval očekávaná $exp_retval)</font> &#10060;<br>\n";
   }
   public function final_stats($test_count = 0, $succ_tests = 0, $failed = 0){
@@ -193,6 +200,7 @@ class HTML{
     $this->HTML_out = $this->HTML_out . "<hr>\nCelkový počet testů: $test_count<br>\nPočet úspěšných testů: $succ_tests<br>\nPočet neúspěšných testů: $failed<br>\nÚspěšnost: $rate%\n";
   }
   public function dir_name($name){
+      $name = realpath($name);
     $this->HTML_out = $this->HTML_out . "<h4><b>Složka: $name:</b></h4><br>\n";
   }
   public function dir_stats($name, $test_count = 0, $succ_tests = 0, $failed = 0){
@@ -302,16 +310,15 @@ class Tester{
       /*Int test*/
       global $int_skript;
       if (isset($int_only) || (!isset($parse_only) && !isset($int_only))) {
-        if (isset($int_only)) $src = $file;
-        else $src = "temp_pars.out";
+        if (isset($int_only)) $src = $dir . '/' . $file;
+        else $src = "./temp_pars.out";
         exec("timeout 3 python3.8 $int_skript --source=$src --input=" . $dir . "/" . str_replace(".src", ".in", $file) . " 1> temp_int.out 2> /dev/null", $out, $retval);
         if ($rc != $retval) {
           $this->html->failed_test($file, $retval, $rc); $dir_failed++; $dir_tests++;
         }
         else {
           if ($retval == 0) {
-            exec("diff temp_int.out " . $dir . "/" . str_replace(".src", ".out", $file), $out0, $retval);
-            fwrite(STDERR,$retval . "\n");
+            exec("diff temp_int.out " . $dir . "/" . str_replace(".src", ".out", $file) . " >/dev/null 2>&1", $out0, $retval);
             if ($retval == 0){
               $this->html->succ_test($file, $retval, 0); $dir_succ++; $dir_tests++;
             }

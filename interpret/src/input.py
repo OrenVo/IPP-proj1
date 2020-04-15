@@ -13,7 +13,13 @@ class Input:
         self.source = source
 
     def READ(self):     # tato funkce načte z stdin, nebo input="file.txt" řádek
-        return self.source.readline().strip()
+        string = self.source.readline()
+        if string == '':  # On eof
+            return None
+        else:
+            if string[-1] == '\n':
+                string = string[:-1]
+            return string
 
     def close(self):
         if self.source is not stdin:

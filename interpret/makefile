@@ -3,7 +3,7 @@
 # Autor: Vojtěch Ulej (xulejv00)   #
 ####################################
 
-ARCH = xulejv00.tbz2
+ARCH = xulejv00.tbz
 PACKFILES = makefile interpret.py src test.php readme2.md rozsireni
 SRC = interpret.py src/*.py
 PYTHON = python3.8
